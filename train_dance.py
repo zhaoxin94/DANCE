@@ -19,18 +19,39 @@ from eval import test
 
 import argparse
 
-parser = argparse.ArgumentParser(description='Pytorch DA',
-                                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('--config', type=str, default='config.yaml', help='/path/to/config/file')
+parser = argparse.ArgumentParser(
+    description='Pytorch DA',
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument('--config',
+                    type=str,
+                    default='config.yaml',
+                    help='/path/to/config/file')
 
-parser.add_argument('--source_path', type=str, default='./utils/source_list.txt', metavar='B',
+parser.add_argument('--source_path',
+                    type=str,
+                    default='./utils/source_list.txt',
+                    metavar='B',
                     help='path to source list')
-parser.add_argument('--target_path', type=str, default='./utils/target_list.txt', metavar='B',
+parser.add_argument('--target_path',
+                    type=str,
+                    default='./utils/target_list.txt',
+                    metavar='B',
                     help='path to target list')
-parser.add_argument('--log-interval', type=int, default=100, metavar='N',
-                    help='how many batches to wait before logging training status')
-parser.add_argument('--exp_name', type=str, default='office_close', help='/path/to/config/file')
-parser.add_argument("--gpu_devices", type=int, nargs='+', default=None, help="")
+parser.add_argument(
+    '--log-interval',
+    type=int,
+    default=100,
+    metavar='N',
+    help='how many batches to wait before logging training status')
+parser.add_argument('--exp_name',
+                    type=str,
+                    default='office_close',
+                    help='/path/to/config/file')
+parser.add_argument("--gpu_devices",
+                    type=int,
+                    nargs='+',
+                    default=None,
+                    help="")
 
 # args = parser.parse_args()
 args = parser.parse_args()
@@ -55,21 +76,24 @@ if not os.path.exists(os.path.dirname(filename)):
 print("record in %s " % filename)
 
 data_transforms = {
-    source_data: transforms.Compose([
+    source_data:
+    transforms.Compose([
         transforms.Scale((256, 256)),
         transforms.RandomHorizontalFlip(),
         transforms.RandomCrop(224),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ]),
-    target_data: transforms.Compose([
+    target_data:
+    transforms.Compose([
         transforms.Scale((256, 256)),
         transforms.RandomHorizontalFlip(),
         transforms.RandomCrop(224),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ]),
-    evaluation_data: transforms.Compose([
+    evaluation_data:
+    transforms.Compose([
         transforms.Scale((256, 256)),
         transforms.CenterCrop(224),
         transforms.ToTensor(),
@@ -88,7 +112,8 @@ n_share = conf.data.dataset.n_share
 n_source_private = conf.data.dataset.n_source_private
 num_class = n_share + n_source_private
 
-G, C1 = get_model_mme(conf.model.base_model, num_class=num_class,
+G, C1 = get_model_mme(conf.model.base_model,
+                      num_class=num_class,
                       temp=conf.model.temp)
 device = torch.device("cuda")
 if args.cuda:
@@ -99,32 +124,48 @@ C1.to(device)
 ndata = target_folder.__len__()
 
 ## Memory
-lemniscate = LinearAverage(2048, ndata, conf.model.temp, conf.train.momentum).cuda()
+lemniscate = LinearAverage(2048, ndata, conf.model.temp,
+                           conf.train.momentum).cuda()
 params = []
 for key, value in dict(G.named_parameters()).items():
     if value.requires_grad and "features" in key:
         if 'bias' in key:
-            params += [{'params': [value], 'lr': conf.train.multi,
-                        'weight_decay': conf.train.weight_decay}]
+            params += [{
+                'params': [value],
+                'lr': conf.train.multi,
+                'weight_decay': conf.train.weight_decay
+            }]
         else:
-            params += [{'params': [value], 'lr': conf.train.multi,
-                        'weight_decay': conf.train.weight_decay}]
+            params += [{
+                'params': [value],
+                'lr': conf.train.multi,
+                'weight_decay': conf.train.weight_decay
+            }]
     else:
         if 'bias' in key:
-            params += [{'params': [value], 'lr': 1.0,
-                        'weight_decay': conf.train.weight_decay}]
+            params += [{
+                'params': [value],
+                'lr': 1.0,
+                'weight_decay': conf.train.weight_decay
+            }]
         else:
-            params += [{'params': [value], 'lr': 1.0,
-                        'weight_decay': conf.train.weight_decay}]
+            params += [{
+                'params': [value],
+                'lr': 1.0,
+                'weight_decay': conf.train.weight_decay
+            }]
 criterion = torch.nn.CrossEntropyLoss().cuda()
 
-opt_g = optim.SGD(params, momentum=conf.train.sgd_momentum,
-                  weight_decay=0.0005, nesterov=True)
-opt_c1 = optim.SGD(list(C1.parameters()), lr=1.0,
-                   momentum=conf.train.sgd_momentum, weight_decay=0.0005,
+opt_g = optim.SGD(params,
+                  momentum=conf.train.sgd_momentum,
+                  weight_decay=0.0005,
+                  nesterov=True)
+opt_c1 = optim.SGD(list(C1.parameters()),
+                   lr=1.0,
+                   momentum=conf.train.sgd_momentum,
+                   weight_decay=0.0005,
                    nesterov=True)
-[G, C1], [opt_g, opt_c1] = amp.initialize([G, C1],
-                                          [opt_g, opt_c1],
+[G, C1], [opt_g, opt_c1] = amp.initialize([G, C1], [opt_g, opt_c1],
                                           opt_level="O1")
 G = nn.DataParallel(G)
 C1 = nn.DataParallel(C1)
@@ -152,10 +193,14 @@ def train():
             data_iter_s = iter(source_loader)
         data_t = next(data_iter_t)
         data_s = next(data_iter_s)
-        inv_lr_scheduler(param_lr_g, opt_g, step,
+        inv_lr_scheduler(param_lr_g,
+                         opt_g,
+                         step,
                          init_lr=conf.train.lr,
                          max_iter=conf.train.min_step)
-        inv_lr_scheduler(param_lr_f, opt_c1, step,
+        inv_lr_scheduler(param_lr_f,
+                         opt_c1,
+                         step,
                          init_lr=conf.train.lr,
                          max_iter=conf.train.min_step)
         img_s = data_s[0]
@@ -187,13 +232,11 @@ def train():
         ### We do not use memory features present in mini-batch
         feat_mat[:, index_t] = -1 / conf.model.temp
         ### Calculate mini-batch x mini-batch similarity
-        feat_mat2 = torch.matmul(feat_t,
-                                 feat_t.t()) / conf.model.temp
-        mask = torch.eye(feat_mat2.size(0),
-                         feat_mat2.size(0)).bool().cuda()
+        feat_mat2 = torch.matmul(feat_t, feat_t.t()) / conf.model.temp
+        mask = torch.eye(feat_mat2.size(0), feat_mat2.size(0)).bool().cuda()
         feat_mat2.masked_fill_(mask, -1 / conf.model.temp)
-        loss_nc = conf.train.eta * entropy(torch.cat([out_t, feat_mat,
-                                                      feat_mat2], 1))
+        loss_nc = conf.train.eta * entropy(
+            torch.cat([out_t, feat_mat, feat_mat2], 1))
         loss_ent = conf.train.eta * entropy_margin(out_t, conf.train.thr,
                                                    conf.train.margin)
         all = loss_nc + loss_s + loss_ent
@@ -207,9 +250,9 @@ def train():
         if step % conf.train.log_interval == 0:
             print('Train [{}/{} ({:.2f}%)]\tLoss Source: {:.6f} '
                   'Loss NC: {:.6f} Loss ENS: {:.6f}\t'.format(
-                step, conf.train.min_step,
-                100 * float(step / conf.train.min_step),
-                loss_s.item(), loss_nc.item(), loss_ent.item()))
+                      step, conf.train.min_step,
+                      100 * float(step / conf.train.min_step), loss_s.item(),
+                      loss_nc.item(), loss_ent.item()))
         if step > 0 and step % conf.test.test_interval == 0:
             test(step, dataset_test, filename, n_share, num_class, G, C1,
                  conf.train.thr)

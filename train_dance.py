@@ -14,6 +14,7 @@ from utils.lr_schedule import inv_lr_scheduler
 from utils.loss import *
 from models.LinearAverage import LinearAverage
 from eval import test
+import random
 
 # Training settings
 
@@ -52,28 +53,51 @@ parser.add_argument("--gpu_devices",
                     nargs='+',
                     default=None,
                     help="")
-
-# args = parser.parse_args()
+parser.add_argument("--seed",
+                    type=int,
+                    default=-1,
+                    help="only positive value enables a fixed seed")
+parser.add_argument("--output-dir",
+                    type=str,
+                    default="",
+                    help="output directory")
 args = parser.parse_args()
+
+
+def set_random_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+
+# set seed
+if args.seed >= 0:
+    print("Setting fixed seed: {}".format(args.seed))
+    set_random_seed(args.seed)
+
+torch.backends.cudnn.benchmark = False
+torch.backends.cudnn.detrministic = True
+
 config_file = args.config
 conf = yaml.load(open(config_file))
 save_config = yaml.load(open(config_file))
 conf = easydict.EasyDict(conf)
 gpu_devices = ','.join([str(id) for id in args.gpu_devices])
 os.environ["CUDA_VISIBLE_DEVICES"] = gpu_devices
-
 args.cuda = torch.cuda.is_available()
+
 source_data = args.source_path
 target_data = args.target_path
 evaluation_data = args.target_path
-
 batch_size = conf.data.dataloader.batch_size
-filename = source_data.split("_")[1] + "2" + target_data.split("_")[1]
-filename = os.path.join("record", args.exp_name,
-                        config_file.replace(".yaml", ""), filename)
-if not os.path.exists(os.path.dirname(filename)):
-    os.makedirs(os.path.dirname(filename))
-print("record in %s " % filename)
+
+# filename = source_data.split("_")[1] + "2" + target_data.split("_")[1]
+# filename = os.path.join("record", args.exp_name,
+#                         config_file.replace(".yaml", ""), filename)
+# if not os.path.exists(os.path.dirname(filename)):
+#     os.makedirs(os.path.dirname(filename))
+# print("record in %s " % filename)
 
 data_transforms = {
     source_data:
@@ -111,6 +135,9 @@ dataset_test = test_loader
 n_share = conf.data.dataset.n_share
 n_source_private = conf.data.dataset.n_source_private
 num_class = n_share + n_source_private
+
+inputs = vars(args)
+logname = log_set(inputs)
 
 G, C1 = get_model_mme(conf.model.base_model,
                       num_class=num_class,
@@ -254,7 +281,7 @@ def train():
                       100 * float(step / conf.train.min_step), loss_s.item(),
                       loss_nc.item(), loss_ent.item()))
         if step > 0 and step % conf.test.test_interval == 0:
-            test(step, dataset_test, filename, n_share, num_class, G, C1,
+            test(step, dataset_test, logname, n_share, num_class, G, C1,
                  conf.train.thr)
             G.train()
             C1.train()

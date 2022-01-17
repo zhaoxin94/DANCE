@@ -28,12 +28,12 @@ parser.add_argument('--config',
                     default='config.yaml',
                     help='/path/to/config/file')
 
-parser.add_argument('--source_path',
+parser.add_argument('--source_data',
                     type=str,
                     default='./utils/source_list.txt',
                     metavar='B',
                     help='path to source list')
-parser.add_argument('--target_path',
+parser.add_argument('--target_data',
                     type=str,
                     default='./utils/target_list.txt',
                     metavar='B',
@@ -80,16 +80,16 @@ torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.detrministic = True
 
 config_file = args.config
-conf = yaml.load(open(config_file))
-save_config = yaml.load(open(config_file))
+conf = yaml.safe_load(open(config_file))
+save_config = yaml.safe_load(open(config_file))
 conf = easydict.EasyDict(conf)
 gpu_devices = ','.join([str(id) for id in args.gpu_devices])
 os.environ["CUDA_VISIBLE_DEVICES"] = gpu_devices
 args.cuda = torch.cuda.is_available()
 
-source_data = args.source_path
-target_data = args.target_path
-evaluation_data = args.target_path
+source_data = args.source_data
+target_data = args.target_data
+evaluation_data = args.target_data
 batch_size = conf.data.dataloader.batch_size
 
 # filename = source_data.split("_")[1] + "2" + target_data.split("_")[1]

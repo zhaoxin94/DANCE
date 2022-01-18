@@ -7,7 +7,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.autograd import Variable
 import torchvision.transforms as transforms
-from apex import amp, optimizers
+# from apex import amp, optimizers
 from data_loader.get_loader import get_loader
 from utils.utils import *
 from utils.lr_schedule import inv_lr_scheduler
@@ -15,6 +15,8 @@ from utils.loss import *
 from models.LinearAverage import LinearAverage
 from eval import test
 import random
+from torch.cuda.amp import GradScaler
+from torch.cuda.amp import autocast
 
 # Training settings
 
@@ -136,7 +138,7 @@ n_share = conf.data.dataset.n_share
 n_source_private = conf.data.dataset.n_source_private
 num_class = n_share + n_source_private
 
-inputs = vars(args) 
+inputs = vars(args)
 logname = log_set(inputs)
 
 G, C1 = get_model_mme(conf.model.base_model,
@@ -192,8 +194,8 @@ opt_c1 = optim.SGD(list(C1.parameters()),
                    momentum=conf.train.sgd_momentum,
                    weight_decay=0.0005,
                    nesterov=True)
-[G, C1], [opt_g, opt_c1] = amp.initialize([G, C1], [opt_g, opt_c1],
-                                          opt_level="O1")
+# [G, C1], [opt_g, opt_c1] = amp.initialize([G, C1], [opt_g, opt_c1],
+#                                           opt_level="O1")
 G = nn.DataParallel(G)
 C1 = nn.DataParallel(C1)
 param_lr_g = []
@@ -205,6 +207,8 @@ for param_group in opt_c1.param_groups:
 
 
 def train():
+    print('Use Pytorch buildin AMP module!')
+    scaler = GradScaler()
     criterion = nn.CrossEntropyLoss().cuda()
     print('train start!')
     data_iter_s = iter(source_loader)
@@ -246,33 +250,42 @@ def train():
         opt_c1.zero_grad()
         ## Weight normalizztion
         C1.module.weight_norm()
-        ## Source loss calculation
-        feat = G(img_s)
-        out_s = C1(feat)
-        loss_s = criterion(out_s, label_s)
+        with autocast():
+            ## Source loss calculation
+            feat = G(img_s)
+            out_s = C1(feat)
+            loss_s = criterion(out_s, label_s)
 
-        feat_t = G(img_t)
-        out_t = C1(feat_t)
-        feat_t = F.normalize(feat_t)
-        ### Calculate mini-batch x memory similarity
-        feat_mat = lemniscate(feat_t, index_t)
-        ### We do not use memory features present in mini-batch
-        feat_mat[:, index_t] = -1 / conf.model.temp
-        ### Calculate mini-batch x mini-batch similarity
-        feat_mat2 = torch.matmul(feat_t, feat_t.t()) / conf.model.temp
-        mask = torch.eye(feat_mat2.size(0), feat_mat2.size(0)).bool().cuda()
-        feat_mat2.masked_fill_(mask, -1 / conf.model.temp)
-        loss_nc = conf.train.eta * entropy(
-            torch.cat([out_t, feat_mat, feat_mat2], 1))
-        loss_ent = conf.train.eta * entropy_margin(out_t, conf.train.thr,
-                                                   conf.train.margin)
-        all = loss_nc + loss_s + loss_ent
-        with amp.scale_loss(all, [opt_g, opt_c1]) as scaled_loss:
-            scaled_loss.backward()
-        opt_g.step()
-        opt_c1.step()
+            feat_t = G(img_t)
+            out_t = C1(feat_t)
+            feat_t = F.normalize(feat_t)
+            ### Calculate mini-batch x memory similarity
+            feat_mat = lemniscate(feat_t, index_t)
+            ### We do not use memory features present in mini-batch
+            feat_mat[:, index_t] = -1 / conf.model.temp
+            ### Calculate mini-batch x mini-batch similarity
+            feat_mat2 = torch.matmul(feat_t, feat_t.t()) / conf.model.temp
+            mask = torch.eye(feat_mat2.size(0),
+                             feat_mat2.size(0)).bool().cuda()
+            feat_mat2.masked_fill_(mask, -1 / conf.model.temp)
+            loss_nc = conf.train.eta * entropy(
+                torch.cat([out_t, feat_mat, feat_mat2], 1))
+            loss_ent = conf.train.eta * entropy_margin(out_t, conf.train.thr,
+                                                       conf.train.margin)
+            all = loss_nc + loss_s + loss_ent
+
+        # with amp.scale_loss(all, [opt_g, opt_c1]) as scaled_loss:
+        #     scaled_loss.backward()
+        # opt_g.step()
+        # opt_c1.step()
+        scaler.scale(all).backward()
+        scaler.step(opt_g)
+        scaler.step(opt_c1)
         opt_g.zero_grad()
         opt_c1.zero_grad()
+
+        scaler.update()
+
         lemniscate.update_weight(feat_t, index_t)
         if step % conf.train.log_interval == 0:
             print('Train [{}/{} ({:.2f}%)]\tLoss Source: {:.6f} '

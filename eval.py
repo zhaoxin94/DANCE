@@ -25,7 +25,7 @@ def test(step, dataset_test, filename, n_share, unk_class, G, C1, threshold):
             img_t, label_t = img_t.cuda(), label_t.cuda()
             feat = G(img_t)
             out_t = C1(feat)
-            out_t = F.softmax(out_t)
+            out_t = F.softmax(out_t, dim=1)
             entr = -torch.sum(out_t * torch.log(out_t), 1).data.cpu().numpy()
             pred = out_t.data.max(1)[1]
             correct_close += pred.eq(label_t.data).cpu().sum()
@@ -91,7 +91,7 @@ def test_class_inc(step, dataset_test, name, num_class, G, C, known_class):
             img_t, label_t = img_t.cuda(), label_t.cuda()
             feat = G(img_t)
             out_t = C(feat)
-            out_t = F.softmax(out_t)
+            out_t = F.softmax(out_t, dim=1)
             pred = out_t.data.max(1)[1]
             correct += pred.eq(label_t.data).cpu().sum()
             pred = pred.cpu().numpy()

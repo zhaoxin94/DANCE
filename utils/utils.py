@@ -29,6 +29,7 @@ def load_model(model_g, model_c, load_path):
 def log_set(kwargs):
     source_data = kwargs["source_data"]
     target_data = kwargs["target_data"]
+    seed = kwargs["seed"]
 
     target_data = os.path.splitext(os.path.basename(target_data))[0]
 
@@ -42,4 +43,5 @@ def log_set(kwargs):
     logging.basicConfig(filename=logname, format="%(message)s")
     logger.setLevel(logging.INFO)
     logger.info("{}_2_{}".format(source_data, target_data))
+    logger.info("use random seed:{}".format(seed))
     return logname

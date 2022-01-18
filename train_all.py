@@ -79,7 +79,7 @@ if __name__ == '__main__':
     base_dir = osp.join('output', args.method, args.dataset + '_' + args.mode,
                         args.backbone + exp_info)
 
-    for i in range(args.n_trials, args.n_trials + 1):
+    for i in range(args.n_trials):
         for source in domains:
             for target in domains:
                 if source != target:

@@ -136,7 +136,7 @@ n_share = conf.data.dataset.n_share
 n_source_private = conf.data.dataset.n_source_private
 num_class = n_share + n_source_private
 
-inputs = vars(args)
+inputs = vars(args) 
 logname = log_set(inputs)
 
 G, C1 = get_model_mme(conf.model.base_model,

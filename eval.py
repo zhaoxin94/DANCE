@@ -2,6 +2,9 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 import logging
+import os
+from torch.autograd import Variable
+
 
 def test(step, dataset_test, filename, n_share, unk_class, G, C1, threshold):
     G.eval()
@@ -25,6 +28,7 @@ def test(step, dataset_test, filename, n_share, unk_class, G, C1, threshold):
             out_t = F.softmax(out_t)
             entr = -torch.sum(out_t * torch.log(out_t), 1).data.cpu().numpy()
             pred = out_t.data.max(1)[1]
+            correct_close += pred.eq(label_t.data).cpu().sum()
             k = label_t.data.size()[0]
             pred_cls = pred.cpu().numpy()
             pred = pred.cpu().numpy()
@@ -41,17 +45,30 @@ def test(step, dataset_test, filename, n_share, unk_class, G, C1, threshold):
                 per_class_correct_cls[i] += float(len(correct_ind_close[0]))
                 per_class_num[i] += float(len(t_ind[0]))
                 correct += float(len(correct_ind[0]))
-                correct_close += float(len(correct_ind_close[0]))
+                # correct_close += float(len(correct_ind_close[0]))
             size += k
     per_class_acc = per_class_correct / per_class_num
-    close_p = float(per_class_correct_cls.sum() / per_class_num.sum())
-    print(
-        '\nTest set including unknown classes:  Accuracy: {}/{} ({:.0f}%)  '
-        '({:.4f}%)\n'.format(
-            correct, size,
-            100. * correct / size, float(per_class_acc.mean())))
-    output = [step, list(per_class_acc), 'per class mean acc %s'%float(per_class_acc.mean()),
-              float(correct / size), 'closed acc %s'%float(close_p)]
+    acc_all = 100. * float(correct) / float(size)
+    close_count = float(per_class_num[:len(class_list) - 1].sum())
+    acc_close_all = 100. * float(correct_close) / close_count
+    # calculate hos
+    known_acc = per_class_acc[:len(class_list) - 1].mean()
+    unknown = per_class_acc[-1]
+    h_score = 2 * known_acc * unknown / (known_acc + unknown)
+    print('\nTest set including unknown classes:  Accuracy: {:.0f}% ({}/{})  '
+          'OS={:.4f}%   HOS={:.4f}%\n'.format(100. * correct / size,
+                                              correct, size,
+                                              float(per_class_acc.mean()),
+                                              h_score))
+    output = [
+        "step %s" % step,
+        "closed perclass",
+        list(per_class_acc),
+        "acc per class %s" % (float(per_class_acc.mean())),
+        "acc %s" % float(acc_all),
+        "acc close all %s" % float(acc_close_all),
+        'h score %s' % float(h_score),
+    ]
     logger = logging.getLogger(__name__)
     logging.basicConfig(filename=filename, format="%(message)s")
     logger.setLevel(logging.INFO)
@@ -94,21 +111,25 @@ def test_class_inc(step, dataset_test, name, num_class, G, C, known_class):
                 pred_all = np.r_[pred_all, out_t.data.cpu().numpy()]
                 label_all = np.r_[label_all, label_t]
     per_class_acc = per_class_correct / per_class_num
-    print(
-        '\nTest set including unknown classes:  Accuracy: {}/{} ({:.0f}%)  '
-        '({:.4f}%)\n'.format(
-            correct, size,
-            100. * correct / size, float(per_class_acc.mean())))
+    print('\nTest set including unknown classes:  Accuracy: {}/{} ({:.0f}%)  '
+          '({:.4f}%)\n'.format(correct, size, 100. * correct / size,
+                               float(per_class_acc.mean())))
     close_p = 100. * float(correct) / float(size)
-    output = [step, "closed", list(per_class_acc), float(per_class_acc.mean()),
-              "acc known %s"%float(per_class_acc[:known_class].mean()),
-              "acc novel %s"%float(per_class_acc[known_class:].mean()), "acc %s"%float(close_p)]
+    output = [
+        step, "closed",
+        list(per_class_acc),
+        float(per_class_acc.mean()),
+        "acc known %s" % float(per_class_acc[:known_class].mean()),
+        "acc novel %s" % float(per_class_acc[known_class:].mean()),
+        "acc %s" % float(close_p)
+    ]
     logger = logging.getLogger(__name__)
     logging.basicConfig(filename=name, format="%(message)s")
     logger.setLevel(logging.INFO)
     logger.info(output)
     print(output)
-    return float(per_class_acc[:known_class].mean()), float(per_class_acc[known_class:].mean())
+    return float(per_class_acc[:known_class].mean()), float(
+        per_class_acc[known_class:].mean())
 
 
 def feat_get(step, G, C1, dataset_source, dataset_target, save_path):
@@ -151,7 +172,11 @@ def feat_get(step, G, C1, dataset_source, dataset_target, save_path):
                 label_all = np.r_[label_all, label_t]
     if not os.path.exists(save_path):
         os.makedirs(save_path, exist_ok=True)
-    np.save(os.path.join(save_path, "save_%s_target_feat.npy" % step), feat_all)
-    np.save(os.path.join(save_path, "save_%s_source_feat.npy" % step), feat_all_s)
-    np.save(os.path.join(save_path, "save_%s_target_label.npy" % step), label_all)
-    np.save(os.path.join(save_path, "save_%s_source_label.npy" % step), label_all_s)
+    np.save(os.path.join(save_path, "save_%s_target_feat.npy" % step),
+            feat_all)
+    np.save(os.path.join(save_path, "save_%s_source_feat.npy" % step),
+            feat_all_s)
+    np.save(os.path.join(save_path, "save_%s_target_label.npy" % step),
+            label_all)
+    np.save(os.path.join(save_path, "save_%s_source_label.npy" % step),
+            label_all_s)

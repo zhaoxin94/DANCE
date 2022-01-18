@@ -34,7 +34,7 @@ if __name__ == '__main__':
                         default=3,
                         type=int,
                         help="Repeat times")
-    parser.add_argument("--method", "-m", default="OVA", help="Method")
+    parser.add_argument("--method", "-m", default="DANCE", help="Method")
     parser.add_argument("--backbone",
                         "-b",
                         default="resnet50",

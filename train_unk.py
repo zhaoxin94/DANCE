@@ -39,10 +39,6 @@ if __name__ == '__main__':
                         "-b",
                         default="resnet50",
                         help="Backbone")
-    parser.add_argument("--amp-type",
-                        type=str,
-                        default='torch',
-                        choices=['torch'])
 
     args = parser.parse_args()
 
@@ -79,7 +75,7 @@ if __name__ == '__main__':
     if exp_info:
         exp_info = '_' + exp_info
 
-    amp_type = '_' + args.amp_type
+    amp_type = '_' + 'torch'
 
     source = args.source
     target = args.target
@@ -108,5 +104,4 @@ if __name__ == '__main__':
                       f'--target_data {target_txt} '
                       f'--gpu {args.gpu} '
                       f'--output-dir {output_dir} '
-                      f'--seed {seed} '
-                      f'--amp-type {args.amp_type}')
+                      f'--seed {seed}')

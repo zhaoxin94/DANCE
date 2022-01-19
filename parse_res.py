@@ -4,6 +4,7 @@ from collections import defaultdict, OrderedDict
 import re
 import numpy as np
 import warnings
+import os
 
 
 def check_isfile(fpath):

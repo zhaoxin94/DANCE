@@ -3,9 +3,20 @@ import argparse
 from collections import defaultdict, OrderedDict
 import re
 import numpy as np
-import warnings
 import os
+import warnings
 
+def listdir_nohidden(path, sort=False):
+    """List non-hidden items in a directory.
+
+    Args:
+         path (str): directory path.
+         sort (bool): sort the items.
+    """
+    items = [f for f in os.listdir(path) if not f.startswith(".")]
+    if sort:
+        items.sort()
+    return items
 
 def check_isfile(fpath):
     """Check if the given path is a file.
@@ -21,24 +32,13 @@ def check_isfile(fpath):
         warnings.warn('No file found at "{}"'.format(fpath))
     return isfile
 
-def listdir_nohidden(path, sort=False):
-    """List non-hidden items in a directory.
-
-    Args:
-         path (str): directory path.
-         sort (bool): sort the items.
-    """
-    items = [f for f in os.listdir(path) if not f.startswith(".")]
-    if sort:
-        items.sort()
-    return items
 
 def write_now(row, colwidth=10):
     sep = "  "
 
     def format_val(x):
         if np.issubdtype(type(x), np.floating):
-            x = "{:.2f}".format(x)
+            x = "{:.4f}".format(x)
         return str(x).ljust(colwidth)[:colwidth]
 
     return sep.join([format_val(x) for x in row]) + "\n"
@@ -63,7 +63,7 @@ def parse_function(*metrics, directory="", end_signal=None):
             for line in lines:
                 line = line.strip()
 
-                if line == end_signal:
+                if end_signal in line:
                     good_to_go = True
 
                 for metric in metrics:
@@ -125,12 +125,12 @@ if __name__ == '__main__':
         '*****************************************************************\n')
 
     # parse results
-    end_signal = "Finished training"
+    end_signal = "step 10000"
 
     metrics = []
-    metric_names = ["HOS", "OS*", "Unknown", "ALL", "OS"]
+    metric_names = ["h score", "acc per class", "acc close all", "acc"]
     for metric_name in metric_names:
-        regex_str = re.compile(fr"\* {metric_name}: ([\.\deE+-]+)%")
+        regex_str = re.compile(fr"{metric_name} ([\.\deE+-]+)")
         metric = {"name": metric_name, "regex": regex_str}
         metrics.append(metric)
 

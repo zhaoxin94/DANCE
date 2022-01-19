@@ -20,7 +20,7 @@ train:
   momentum: 0.0
   eta: 0.05
   log_interval: 100
-  thr: 1.354025100551105
+  thr: 1.6094379124341003
   margin: 0.5
 test:
   test_interval: 500

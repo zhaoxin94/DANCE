@@ -3,20 +3,8 @@ import argparse
 from collections import defaultdict, OrderedDict
 import re
 import numpy as np
-import os
 import warnings
 
-def listdir_nohidden(path, sort=False):
-    """List non-hidden items in a directory.
-
-    Args:
-         path (str): directory path.
-         sort (bool): sort the items.
-    """
-    items = [f for f in os.listdir(path) if not f.startswith(".")]
-    if sort:
-        items.sort()
-    return items
 
 def check_isfile(fpath):
     """Check if the given path is a file.
@@ -32,13 +20,24 @@ def check_isfile(fpath):
         warnings.warn('No file found at "{}"'.format(fpath))
     return isfile
 
+def listdir_nohidden(path, sort=False):
+    """List non-hidden items in a directory.
+
+    Args:
+         path (str): directory path.
+         sort (bool): sort the items.
+    """
+    items = [f for f in os.listdir(path) if not f.startswith(".")]
+    if sort:
+        items.sort()
+    return items
 
 def write_now(row, colwidth=10):
     sep = "  "
 
     def format_val(x):
         if np.issubdtype(type(x), np.floating):
-            x = "{:.4f}".format(x)
+            x = "{:.2f}".format(x)
         return str(x).ljust(colwidth)[:colwidth]
 
     return sep.join([format_val(x) for x in row]) + "\n"
@@ -63,7 +62,7 @@ def parse_function(*metrics, directory="", end_signal=None):
             for line in lines:
                 line = line.strip()
 
-                if end_signal in line:
+                if line == end_signal:
                     good_to_go = True
 
                 for metric in metrics:
@@ -109,28 +108,15 @@ def parse_function(*metrics, directory="", end_signal=None):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--method", "-m", default="DANCE", help="Method")
-    parser.add_argument("--dataset",
-                        "-d",
-                        default="officehome",
-                        help="Dataset",
-                        choices=['office31', 'officehome'])
-    parser.add_argument("--backbone",
-                        "-b",
-                        default="resnet50",
-                        help="Backbone")
-    parser.add_argument('--exp_name', type=str, default='')
-    parser.add_argument('--mode', type=str, default='ODA')
+    parser.add_argument("--path", "-p", type=str, default='', help="Method")
 
     args = parser.parse_args()
 
     ###############################################################################
-    exp_info = args.exp_name
-    if exp_info:
-        exp_info = '_' + exp_info
 
-    base_dir = osp.join('output', args.method, args.dataset + '_' + args.mode,
-                        args.backbone + exp_info)
+    base_dir = args.path
+
+    method = base_dir.split('/')[1]
 
     print('*****************************************************************')
     print(f'Extract results from {base_dir}')
@@ -138,12 +124,12 @@ if __name__ == '__main__':
         '*****************************************************************\n')
 
     # parse results
-    end_signal = "step 10000"
+    end_signal = "Finished training"
 
     metrics = []
-    metric_names = ["h score", "acc per class", "acc close all", "acc", "roc"]
+    metric_names = ["HOS", "OS*", "Unknown", "ALL", "OS"]
     for metric_name in metric_names:
-        regex_str = re.compile(fr"{metric_name} ([\.\deE+-]+)")
+        regex_str = re.compile(fr"\* {metric_name}: ([\.\deE+-]+)%")
         metric = {"name": metric_name, "regex": regex_str}
         metrics.append(metric)
 
@@ -177,7 +163,7 @@ if __name__ == '__main__':
 
     results_path = osp.join(base_dir, 'collect_results.txt')
     with open(results_path, 'w') as f:
-        f.write(write_now([args.method] + tasks))
+        f.write(write_now([method] + tasks))
         for key in metric_names:
             row = [key]
             row += list(final_results[key])

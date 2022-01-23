@@ -97,7 +97,7 @@ if __name__ == '__main__':
                         seed = seed_hash(args.method, args.backbone,
                                          args.dataset, source, target, i)
                     if args.dataset == 'visda':
-                        source = target = 'list'
+                        source = target = 'visda'
 
                     source_txt = source_template.format(source)
                     target_txt = target_template.format(target)

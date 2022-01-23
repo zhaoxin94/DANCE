@@ -67,9 +67,12 @@ if __name__ == '__main__':
             target_template = './txt/target_{}_univ.txt'
     elif args.dataset == 'domainnet':
         domains = [
-            'clipart', 'infograph', 'painting', 'quickdraw', 'real', 'sketch'
+            'dpainting', 'dreal', 'dsketch'
         ]
-        config_file = ''
+        config_file = 'configs/dnet-train-config-OPDA.yaml'
+        if args.mode == 'OPDA':
+            source_template = './txt/source_{}_univ.txt'
+            target_template = './txt/target_{}_univ.txt'
     else:
         raise ValueError('Unknown Dataset: {}'.format(args.dataset))
 

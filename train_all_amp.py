@@ -36,7 +36,7 @@ if __name__ == '__main__':
                         type=int,
                         help="Repeat times")
     parser.add_argument('--exp_name', type=str, default='amp')
-    parser.add_argument('--seed', type=int, default=-1)
+    parser.add_argument('--seed', type=int, default=2022)
     parser.add_argument('--mode', type=str, default='ODA')
 
     args = parser.parse_args()
